@@ -28,14 +28,18 @@ public class ProfitCalcPlugin extends Plugin {
 
     @Inject
     @Getter
+    private ProfitCalcItemSearch calcItemSearch;
+
+    @Getter
     private ProfitCalcPanel calcPanel;
 
     private NavigationButton navButton;
 
-    public static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("###,###,###,###");
+    public static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("###,###,###,##0.#");
 
     @Override
     protected void startUp() throws Exception {
+        calcPanel = new ProfitCalcPanel(this);
         log.info("ProfitCalc started!");
 
         navButton = NavigationButton.builder()

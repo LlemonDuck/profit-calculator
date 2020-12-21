@@ -1,5 +1,6 @@
 package com.duckblade.runeliteplugins.profitcalc;
 
+import com.duckblade.runeliteplugins.profitcalc.ui.ItemStackPanel;
 import net.runelite.api.GameState;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.game.ItemManager;
@@ -10,6 +11,7 @@ import net.runelite.client.util.AsyncBufferedImage;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.swing.*;
+import java.util.function.Consumer;
 
 @Singleton
 public class ProfitCalcItemSearch {
@@ -38,25 +40,45 @@ public class ProfitCalcItemSearch {
 
         itemSearch.tooltipText("Add " + (inputMode ? "Input" : "Output"))
                 .onItemSelected(i -> {
-                    clientThread.invokeLater(() -> triggerAmountInput(itemManager.canonicalize(i), inputMode));
+                    clientThread.invokeLater(() -> triggerAmountInput(callbackAddItem(itemManager.canonicalize(i), inputMode)));
                 }).build();
     }
 
-    public void triggerAmountInput(int itemId, boolean inputMode) {
-        chatboxPanelManager.openTextInput("Enter Amount")
-                .addCharValidator(c -> c >= 48 && c <= 57)
-                .onDone(amountStrP -> {
-                    clientThread.invokeLater(() -> {
-                        String amountStr = amountStrP;
-                        if (amountStr.length() > 10) amountStr = amountStr.substring(0, 10);
-                        int amount = Integer.parseInt(amountStr);
-                        int ppu = itemManager.getItemPrice(itemId);
-                        String itemName = itemManager.getItemComposition(itemId).getName();
-                        AsyncBufferedImage itemImage = itemManager.getImage(itemId);
+    public void triggerNewQuantity(ItemStackPanel itemStackPanel) {
+        triggerAmountInput(newAmount -> {
+            CalcItemStack oldStack = itemStackPanel.getItemStack();
+            CalcItemStack newStack = new CalcItemStack(oldStack.getItemName(), oldStack.getItemIcon(), oldStack.getPpu(), newAmount);
+            itemStackPanel.setItemStack(newStack);
+        });
+    }
 
-                        CalcItemStack itemStack = new CalcItemStack(itemName, itemImage, ppu, amount);
-                        plugin.getCalcPanel().addItemFromSearch(inputMode, itemStack);
-                    });
+    public void triggerNewPpu(ItemStackPanel itemStackPanel) {
+        triggerAmountInput(newPpu -> {
+            CalcItemStack oldStack = itemStackPanel.getItemStack();
+            CalcItemStack newStack = new CalcItemStack(oldStack.getItemName(), oldStack.getItemIcon(), newPpu, oldStack.getAmount());
+            itemStackPanel.setItemStack(newStack);
+        });
+    }
+
+    private Consumer<Float> callbackAddItem(int itemId, boolean inputMode) {
+        return amount -> clientThread.invokeLater(() -> {
+            int ppu = itemManager.getItemPrice(itemId);
+            String itemName = itemManager.getItemComposition(itemId).getName();
+            AsyncBufferedImage itemImage = itemManager.getImage(itemId);
+
+            CalcItemStack itemStack = new CalcItemStack(itemName, itemImage, ppu, amount);
+            plugin.getCalcPanel().addItemFromSearch(inputMode, itemStack);
+        });
+    }
+
+    public void triggerAmountInput(Consumer<Float> callback) {
+        chatboxPanelManager.openTextInput("Enter Amount")
+                .addCharValidator(c -> (c >= '0' && c <= '9') || (c == '.'))
+                .onDone(amountStrP -> {
+                    String amountStr = amountStrP;
+                    if (amountStr.length() > 10) amountStr = amountStr.substring(0, 10);
+                    float amount = Float.parseFloat(amountStr);
+                    callback.accept(amount);
                 }).build();
     }
 

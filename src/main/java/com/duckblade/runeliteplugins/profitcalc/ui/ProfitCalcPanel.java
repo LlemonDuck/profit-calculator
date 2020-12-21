@@ -2,16 +2,19 @@ package com.duckblade.runeliteplugins.profitcalc.ui;
 
 import com.duckblade.runeliteplugins.profitcalc.CalcItemStack;
 import com.duckblade.runeliteplugins.profitcalc.ProfitCalcPlugin;
+import lombok.Getter;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 
-import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.swing.*;
 import java.awt.*;
 
 @Singleton
 public class ProfitCalcPanel extends PluginPanel {
+
+    @Getter
+    private final ProfitCalcPlugin plugin;
 
     private HeaderPanel headerPanel;
     private ItemListPanel inputPanel;
@@ -20,13 +23,11 @@ public class ProfitCalcPanel extends PluginPanel {
     private JPanel itemListPanel;
     private JLabel profitLabel;
 
-    private long profit;
+    private float profit;
 
-    @Inject
-    public ProfitCalcPanel(ItemListPanel inputPanel, ItemListPanel outputPanel) {
+    public ProfitCalcPanel(ProfitCalcPlugin parent) {
         super(false);
-        this.inputPanel = inputPanel;
-        this.outputPanel = outputPanel;
+        this.plugin = parent;
 
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -40,9 +41,12 @@ public class ProfitCalcPanel extends PluginPanel {
         itemListPanel.setBackground(ColorScheme.DARK_GRAY_COLOR);
         add(itemListPanel, BorderLayout.CENTER);
 
+        this.inputPanel = new ItemListPanel(this);
         inputPanel.setInputMode(true);
-        outputPanel.setInputMode(false);
         itemListPanel.add(inputPanel);
+
+        this.outputPanel = new ItemListPanel(this);
+        outputPanel.setInputMode(false);
         itemListPanel.add(outputPanel);
 
         this.profit = 0;
@@ -52,26 +56,22 @@ public class ProfitCalcPanel extends PluginPanel {
     }
 
     public void reset() {
-        SwingUtilities.invokeLater(() -> {
-            inputPanel.reset();
-            outputPanel.reset();
-
-            this.profit = 0;
-            profitLabel.setText("Profit: 0gp");
-
-            repaint();
-            revalidate();
-        });
+        inputPanel.reset();
+        outputPanel.reset();
     }
 
     public void addItemFromSearch(boolean inputMode, CalcItemStack itemStack) {
-        ItemListPanel target = inputMode ? inputPanel : outputPanel;
-
         SwingUtilities.invokeLater(() -> {
-            profit += ((long) itemStack.getAmount() * itemStack.getPpu()) * (inputMode ? -1 : 1);
-            profitLabel.setText("Profit: " + ProfitCalcPlugin.DECIMAL_FORMAT.format(profit) + "gp");
-
+            ItemListPanel target = inputMode ? inputPanel : outputPanel;
             target.addItemFromSearch(itemStack);
+            recalculate();
+        });
+    }
+
+    public void recalculate() {
+        SwingUtilities.invokeLater(() -> {
+            profit = outputPanel.getValue() - inputPanel.getValue();
+            profitLabel.setText("Profit: " + ProfitCalcPlugin.DECIMAL_FORMAT.format(profit) + "gp");
             repaint();
             revalidate();
         });
